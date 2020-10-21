@@ -8,9 +8,9 @@ import math
 import json
 import pandas as pd
 from threading import Timer
-import os
 
-token = os.environ.get("BOT_TOKEN")
+
+token = "1043137499:AAGQgSKr1nk1sA5CMbB6fikDOrVrIi1zEdU"
 bot = telebot.TeleBot(token)
 
 companies = {1: {'Standard Oil': 0, 'White Star Line': 0, 'Charron': 0, 'Путиловские заводы': 0, 'Grönvik glasbruk': 0},
