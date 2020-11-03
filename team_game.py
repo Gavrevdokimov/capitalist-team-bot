@@ -287,7 +287,7 @@ def round_table():
     for result in result_money_list:
         for player in players:
             if players[player]["round_result"] - players[player]["debt"] == result:
-                names_list.append(players[player]["name"])
+                names_list.append(str(players[player]["name"]))
                 money_list.append(players[player]["round_result"])
                 debt_list.append(players[player]["debt"])
     table_list = []
@@ -412,7 +412,7 @@ def time_alert():
         round_num = players[player]["round_number"]
         break
     for gamer in players:
-        if players[gamer]["finish"][round_num] == 0:
+        if players[gamer]["finish"][round_num] == 0  and stop_game_flag == 0:
             bot.send_message(gamer, "Осталась 1 минута")
     if stop_game_flag == 0:
         bot.send_message(325051402, "Осталась 1 минута")
