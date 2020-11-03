@@ -246,7 +246,7 @@ def investment_table():
     for company in local_round_list:
         for player in players:
             if players[player]["companies"][round_number][company] > 0:
-               invest[company].append(players[player]["name"])
+               invest[company].append(str(players[player]["name"]))
     for company in invest:
         invest[company] = ", ".join(invest[company])
         result.append(": ".join([company, invest[company]]))
@@ -412,7 +412,7 @@ def time_alert():
         round_num = players[player]["round_number"]
         break
     for gamer in players:
-        if players[gamer]["finish"][round_num] == 0  and stop_game_flag == 0:
+        if players[gamer]["finish"][round_num] == 0 and stop_game_flag == 0:
             bot.send_message(gamer, "Осталась 1 минута")
     if stop_game_flag == 0:
         bot.send_message(325051402, "Осталась 1 минута")
@@ -445,13 +445,16 @@ def command_hadler(message):
                 if players[message.from_user.id]["round_number"] == 1:
                     bot.send_message(message.from_user.id, 'Добро пожаловать в игру "Капиталист"! Придумайте название вашей команды и напишите его мне.')
                 else:
-                    bot.send_message(message.from_user.id, "К сожалению, вы пропустили первые раунды, но оставшиеся можете сыграть вместе со всеми. Включайтесь в игру!")
+                    bot.send_message(message.from_user.id, "К сожалению, вы пропустили первые раунды, но оставшиеся можете сыграть вместе со всеми. Для вас игра начнется со следующего раунда.")
+                    players[message.from_user.id]["money"] = 0
+                    players[message.from_user.id]["finish"][players[message.from_user.id]["round_number"]] = 1
                     try:
                         a = max([int(players[player]["name"][9:]) for player in players if players[player]["name"][:9] == "Опоздyны-"]) + 1
                     except:
                         a = 1
                     players[message.from_user.id]["name"] = ("Опоздуны-" + str(a))
                     bot.send_message(325051402, f'Подключился новый игрок - {players[message.from_user.id]["name"]}')
+                    bot.send_message(message.from_user.id, f'Название вашей команды - {players[message.from_user.id]["name"]}')
             saving()
         else:
             bot.send_message(message.from_user.id, "Вы уже в игре")
