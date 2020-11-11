@@ -246,7 +246,7 @@ def investment_table():
     for company in local_round_list:
         for player in players:
             if players[player]["companies"][round_number][company] > 0:
-               invest[company].append(str(players[player]["name"]))
+               invest[company].append(players[player]["name"])
     for company in invest:
         invest[company] = ", ".join(invest[company])
         result.append(": ".join([company, invest[company]]))
@@ -282,38 +282,40 @@ def round_table():
             players[player]["round_result"] = money_result(player)
     result_money_list = sorted(list(set([players[i]["round_result"] - players[i]["debt"] for i in players])), reverse=True)
     names_list = []
+    last_names_list = []
     money_list = []
     debt_list = []
     for result in result_money_list:
         for player in players:
             if players[player]["round_result"] - players[player]["debt"] == result:
-                names_list.append(str(players[player]["name"]))
+                names_list.append(players[player]["name"])
+                last_names_list.append(players[player]["last_name"])
                 money_list.append(players[player]["round_result"])
                 debt_list.append(players[player]["debt"])
     table_list = []
     winners_list = []
     if players[[player for player in players][0]]["round_number"] == 7:
         for i in range(0, len(names_list)):
-            row = "".join(str(names_list[i]) + " — " + str(money_list[i]-debt_list[i]) + " " + str(dollar_word(money_list[i]-debt_list[i])))
+            row = "".join(str(names_list[i]) + " " + str(last_names_list[i]) + " — " + str(money_list[i]-debt_list[i]) + " " + str(dollar_word(money_list[i]-debt_list[i])))
             table_list.append(row)
             if (money_list[i]-debt_list[i]) == max(result_money_list):
-                row = "".join(str(names_list[i]))
+                row = "".join(str(names_list[i]) + " " + str(last_names_list[i]))
                 winners_list.append(row)
         if len(winners_list) > 1:
             winners = ", ".join(winners_list)
             congratulation = "".join(["Поздравляем победителей: ", winners, " !"])
         else:
             winner = winners_list[0]
-            congratulation = "".join(['Поздравляем победителя - Команду "', winner, '"!'])
+            congratulation = "".join(["Поздравляем победителя: ", winner, " !"])
         table_str = "\n".join(table_list)
         return table_str, congratulation
     else:
         for i in range (0, len(names_list)):
             if debt_list[i] > 0:
-                a = "".join(str(names_list[i]) + " — " + str(money_list[i]) + " " + str(dollar_word(money_list[i])) + ", " + "долг — " + str(debt_list[i]) + " " + str(dollar_word(debt_list[i])))
+                a = "".join(str(names_list[i]) + " " + str(last_names_list[i]) + " — " + str(money_list[i]) + " " + str(dollar_word(money_list[i])) + ", " + "долг — " + str(debt_list[i]) + " " + str(dollar_word(debt_list[i])))
                 table_list.append(a)
             else:
-                a = "".join(str(names_list[i]) + " — " + str(money_list[i]) + " " + str(dollar_word(money_list[i])))
+                a = "".join(str(names_list[i]) + " " + str(last_names_list[i]) + " — " + str(money_list[i]) + " " + str(dollar_word(money_list[i])))
                 table_list.append(a)
         table_str = "\n".join(table_list)
     return table_str
@@ -434,27 +436,22 @@ def command_hadler(message):
             players[message.from_user.id]["choose"] = 0
             players[message.from_user.id]["debt"] = 0
             players[message.from_user.id]["finish"] = copy.deepcopy(finish)
-            players[message.from_user.id]["name"] = 0
+            players[message.from_user.id]["name"] = message.from_user.first_name
+            players[message.from_user.id]["last_name"] = message.from_user.last_name
             players[message.from_user.id]["companies"] = copy.deepcopy(companies)
             if len(players) == 1:
                 players[message.from_user.id]["round_number"] = 1
-                bot.send_message(message.from_user.id, 'Добро пожаловать в игру "Капиталист"! Придумайте название вашей команды и напишите его мне.')
+                bot.send_message(message.from_user.id, "Добро пожаловать в игру Капиталист! Мы очень скоро начнем!")
                 bot.send_message(325051402, "Гавр, начнем игру?", reply_markup=keyboard_start_game())
             else:
                 players[message.from_user.id]["round_number"] = [players[player]["round_number"] for player in players if player != message.from_user.id][0]
                 if players[message.from_user.id]["round_number"] == 1:
-                    bot.send_message(message.from_user.id, 'Добро пожаловать в игру "Капиталист"! Придумайте название вашей команды и напишите его мне.')
+                    bot.send_message(message.from_user.id, "Добро пожаловать в игру Капиталист! Мы очень скоро начнем!")
                 else:
-                    bot.send_message(message.from_user.id, "К сожалению, вы пропустили первые раунды, но оставшиеся можете сыграть вместе со всеми. Для вас игра начнется со следующего раунда.")
+                    bot.send_message(message.from_user.id, "К сожалению, вы пропустили первые раунды, но оставшиеся можете сыграть вместе со всеми. Для вас игра начнется в начале следующего раунда")
                     players[message.from_user.id]["money"] = 0
                     players[message.from_user.id]["finish"][players[message.from_user.id]["round_number"]] = 1
-                    try:
-                        a = max([int(players[player]["name"][9:]) for player in players if players[player]["name"][:9] == "Опоздyны-"]) + 1
-                    except:
-                        a = 1
-                    players[message.from_user.id]["name"] = ("Опоздуны-" + str(a))
-                    bot.send_message(325051402, f'Подключился новый игрок - {players[message.from_user.id]["name"]}')
-                    bot.send_message(message.from_user.id, f'Название вашей команды - {players[message.from_user.id]["name"]}')
+            bot.send_message(325051402, f"Подключился новый игрок - {message.from_user.first_name} {message.from_user.last_name}")
             saving()
         else:
             bot.send_message(message.from_user.id, "Вы уже в игре")
@@ -478,8 +475,6 @@ def answer(message):
     global players
     global stop_game_flag
     if message.data == 'yes':
-        for i in players:
-            players[i]["debt"] *= 2
         round_table_str = round_table()
         for player in players:
             if players[player]['round_number'] == 7:
@@ -534,7 +529,10 @@ def answer(message):
         bot.send_message(325051402, f"Гавр, остановим инвестиции?", reply_markup=keyboard_stop_game())
     elif message.data == "stop_game":
         stop_game_flag = 1
+        bot.send_message(325051402, investment_table())
         bot.send_message(325051402, f"Гавр, разреши посмотреть результаты", reply_markup=keyboard_result())
+        for i in players:
+            players[i]["debt"] *= 2
     elif message.data == "time_go":
         Timer(120, time_alert).start()
         Timer(180, time_to_stop).start()
@@ -555,12 +553,7 @@ def sticker_hadler(message):
     global players
     if message.from_user.id in players:
         if message.text.isdigit() == False:
-            if players[message.from_user.id]["name"] == 0:
-                players[message.from_user.id]["name"] = message.text
-                bot.send_message(325051402, f'Подключился новый игрок - {players[message.from_user.id]["name"]}')
-                bot.send_message(message.from_user.id, f'Мы дождемся остальные команды и начнем.\nЖелаю удачи, {players[message.from_user.id]["name"]}!')
-            else:
-                small_talk(message)
+            small_talk(message)
         else:
             if stop_game_flag == 0:
                 if players[message.from_user.id]['choose'] in round_list(message.from_user.id):
@@ -582,6 +575,8 @@ def sticker_hadler(message):
                             if sum([players[i]["finish"][players[message.from_user.id]["round_number"]] for i in players]) == len(players):
                                 bot.send_message(325051402, 'Гавр, все закончили, разреши посмотреть результаты', reply_markup=keyboard_result())
                                 bot.send_message(325051402, investment_table())
+                                for i in players:
+                                    players[i]["debt"] *= 2
                         else:
                             bot.send_message(message.from_user.id, f"Не останавливайтесь, у вас еще {money - round_investment} {dollar_word(money - round_investment)}.\n\nВы уже проинвестировали:\n{already_invested(message.from_user.id)}.\n\nЧьи акции хотите купить?", reply_markup=keyboard(round_list, message.from_user.id))
                     saving()
