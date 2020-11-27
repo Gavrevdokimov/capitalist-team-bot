@@ -141,9 +141,8 @@ def excel_saving():
 
 #отправляем excel
 def excel_sending():
-    with open("result.xlsx", "rb") as misc:
-        new_file = misc.read()
-    bot.send_document(325051402, new_file)
+    with open("result.xlsx", "rb") as file:
+        bot.send_document(325051402, file)
 
 
 #считаем деньги на конец раунда
