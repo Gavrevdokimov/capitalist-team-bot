@@ -74,7 +74,8 @@ yesfraselist = [
     "Это были непростые годы. Скорость жизни постоянно увеличивается, за какие-то 15 лет мир изменился до неузнаваемости. Целые состояния появляются из ниоткуда за считанные годы и также быстро растворяются. Да что там состояния, если теперь можно утром проснуться в другой стране. Но мастер фондового рынка только рад такой волатильности."]
 
 
-stop_game_flag = 0
+stop_game_flag = 0                  # жесткий метод запрета игровых действий
+
 
 #пишем правильную форму слова "доллар"
 def dollar_word(dollar_sum):
@@ -89,7 +90,8 @@ def dollar_word(dollar_sum):
     else:
         return "долларов"
 
-#ответ на простые сообщения
+
+#ответ на простые сообщения "болталка"
 def small_talk(message):
     if ("привет" in message.text.lower()) or ("hi" in message.text.lower()) or ("hello" in message.text.lower()) or ("здравствуй" in message.text.lower()) or ("хай" in message.text.lower()):
         bot.send_message(message.from_user.id, "Здравствуйте! Как поживаете?")
@@ -123,6 +125,25 @@ def round_list(id):
     for company in players[id]["companies"][players[id]["round_number"]]:
         roundlist.append(company)
     return roundlist
+
+
+#сохраняем players в итоговый файл результатов
+def excel_saving():
+    df = pd.DataFrame(columns=['Имя', 'Фамилия', 'Результат'])
+    counter = 0
+    for player in players:
+        df.loc[counter] = [players[player]["name"], players[player]["last_name"], players[player]["money"]]
+        counter += 1
+    writer = pd.ExcelWriter('result.xlsx')
+    df.to_excel(writer, index=False, sheet_name='Результат игры')
+    writer.save()
+
+
+#отправляем excel
+def excel_sending():
+    with open("result.xlsx", "rb") as misc:
+        new_file = misc.read()
+    bot.send_document(325051402, new_file)
 
 
 #считаем деньги на конец раунда
@@ -200,10 +221,10 @@ def max_profit_from_company(id):
 
 
 #клава со списком компаний
-def keyboard(x, id):
+def keyboard(id):
     keyboard = types.InlineKeyboardMarkup()
-    for company in x(id):   #x = round_list
-        keyboard.add(types.InlineKeyboardButton(text=company,callback_data=company))
+    for company in round_list(id):
+        keyboard.add(types.InlineKeyboardButton(text=company, callback_data=company))
     return keyboard
 
 
@@ -215,15 +236,6 @@ def keyboard_begin_round():
     return keyboard
 
 
-#клава уверены, что хотите выйти?
-def keyboard_leave():
-    keyboard = types.InlineKeyboardMarkup()
-    yes = types.InlineKeyboardButton(text="Да", callback_data='sure')
-    no = types.InlineKeyboardButton(text="Нет", callback_data="notsure")
-    keyboard.add(yes, no)
-    return keyboard
-
-
 #клава Гавр, покажи результат
 def keyboard_result():
     keyboard = types.InlineKeyboardMarkup()
@@ -232,7 +244,7 @@ def keyboard_result():
     return keyboard
 
 
-#табличка, кто куда инвестировал
+#табличка популярности компаний
 def investment_table():
     invest = {}
     local_round_list = []
@@ -241,20 +253,19 @@ def investment_table():
         round_number = players[player]["round_number"]
         break
     for company in players[player]["companies"][round_number]:
-        invest[company] = []
+        invest[company] = 0
         local_round_list.append(company)
     for company in local_round_list:
         for player in players:
             if players[player]["companies"][round_number][company] > 0:
-               invest[company].append(players[player]["name"])
+               invest[company] += 1
     for company in invest:
-        invest[company] = ", ".join(invest[company])
-        result.append(": ".join([company, invest[company]]))
+        result.append(": ".join([company, str(invest[company])]))
         final = "\n".join(result)
     return final
 
 
-#табличка с уже сделанными инвестициями для участника
+# табличка с уже сделанными инвестициями для участника
 def already_invested(id):
     invest_list = sorted([players[id]["companies"][players[id]["round_number"]][company] for company in players[id]["companies"][players[id]["round_number"]] if players[id]["companies"][players[id]["round_number"]][company] > 0], reverse=True)
     company_list = []
@@ -274,7 +285,7 @@ def already_invested(id):
     return table_str
 
 
-#табличка с результатами раунда
+# табличка с результатами раунда
 def round_table():
     for player in players:   #проверяем, всё ли игрок инвестировал, если нет, бабло сгорает
         round_investment = sum([i for i in players[player]["companies"][players[player]["round_number"]].values()])
@@ -287,6 +298,8 @@ def round_table():
     debt_list = []
     for result in result_money_list:
         for player in players:
+            if len(names_list) >= 5:
+                break
             if players[player]["round_result"] - players[player]["debt"] == result:
                 names_list.append(players[player]["name"])
                 last_names_list.append(players[player]["last_name"])
@@ -365,14 +378,6 @@ def saving():
     return
 
 
-#клава со списком участников для удаления
-def delete_keyboard():
-    keyboard = types.InlineKeyboardMarkup()
-    for player in players:
-        keyboard.add(types.InlineKeyboardButton(text=players[player]["name"],callback_data=player))
-    return keyboard
-
-
 #клава для запрета инвестирования
 def keyboard_stop_game():
     keyboard = types.InlineKeyboardMarkup()
@@ -414,7 +419,7 @@ def time_alert():
         round_num = players[player]["round_number"]
         break
     for gamer in players:
-        if players[gamer]["finish"][round_num] == 0 and stop_game_flag == 0:
+        if players[gamer]["finish"][round_num] == 0:
             bot.send_message(gamer, "Осталась 1 минута")
     if stop_game_flag == 0:
         bot.send_message(325051402, "Осталась 1 минута")
@@ -425,40 +430,45 @@ def time_to_stop():
         bot.send_message(325051402, "Гавр, пора закрывать инвестиции", reply_markup= keyboard_stop_game())
 
 
-@bot.message_handler(commands=["start", "help", "delete", "cleaning", "turtle", "mistake"])  # реакция на команду, которая вводится после /
+#считаем деньги, которые еще можно вложить
+def free_money(id):
+    money = players[id]['money']
+    spent = sum([i for i in players[id]['companies'][players[id]['round_number']].values()])
+    return money - spent
+
+
+@bot.message_handler(commands=["start", "help", "cleaning", "turtle", "mistake"])  # реакция на команду, которая вводится после /
 def command_hadler(message):
     global players
     global stop_game_flag
     if message.text == "/start":
         if message.from_user.id not in players:
             players[message.from_user.id] = {}
-            players[message.from_user.id]["money"] = 3
-            players[message.from_user.id]["choose"] = 0
-            players[message.from_user.id]["debt"] = 0
-            players[message.from_user.id]["finish"] = copy.deepcopy(finish)
-            players[message.from_user.id]["name"] = message.from_user.first_name
-            players[message.from_user.id]["last_name"] = message.from_user.last_name
-            players[message.from_user.id]["companies"] = copy.deepcopy(companies)
+            players[message.from_user.id]["money"] = 3                                       # заработанные деньги игрока
+            players[message.from_user.id]["choose"] = 0                                      # компания, выбранная для инвестирования
+            players[message.from_user.id]["debt"] = 0                                        # долг
+            players[message.from_user.id]["finish"] = copy.deepcopy(finish)                  # отметка о завершении игровых действий в этом раунде
+            players[message.from_user.id]["name"] = message.from_user.first_name             # имя участника
+            players[message.from_user.id]["last_name"] = message.from_user.last_name         # фамилия участника
+            players[message.from_user.id]["companies"] = copy.deepcopy(companies)            # вложения в каждую конкретную компанию игры
             if len(players) == 1:
-                players[message.from_user.id]["round_number"] = 1
+                players[message.from_user.id]["round_number"] = 1                            # номер раунда игры
                 bot.send_message(message.from_user.id, "Добро пожаловать в игру Капиталист! Мы очень скоро начнем!")
                 bot.send_message(325051402, "Гавр, начнем игру?", reply_markup=keyboard_start_game())
             else:
                 players[message.from_user.id]["round_number"] = [players[player]["round_number"] for player in players if player != message.from_user.id][0]
                 if players[message.from_user.id]["round_number"] == 1:
                     bot.send_message(message.from_user.id, "Добро пожаловать в игру Капиталист! Мы очень скоро начнем!")
+                    if len(players) % 3 == 0:
+                        bot.send_message(325051402, f"{len(players)} человек")
                 else:
-                    bot.send_message(message.from_user.id, "К сожалению, вы пропустили первые раунды, но оставшиеся можете сыграть вместе со всеми. Для вас игра начнется в начале следующего раунда")
-                    players[message.from_user.id]["money"] = 0
-                    players[message.from_user.id]["finish"][players[message.from_user.id]["round_number"]] = 1
-            bot.send_message(325051402, f"Подключился новый игрок - {message.from_user.first_name} {message.from_user.last_name}")
+                    bot.send_message(message.from_user.id, "К сожалению вы пропустили первые раунды, но оставшиеся можете сыграть вместе со всеми. Для вас игра начнется с начала следующего раунда.")
+                    bot.send_message(325051402, f"Подключился новый игрок - {message.from_user.first_name} {message.from_user.last_name}")
             saving()
         else:
             bot.send_message(message.from_user.id, "Вы уже в игре")
     elif message.text == "/help":
-        bot.send_message(message.from_user.id, "/delete - удалить игрока\n\n/cleaning - удалить всех игроков\n\n/turtle - список не закончивших\n\n/mistake - разрешить инвестиции")
-    elif message.text == "/delete":
-        bot.send_message(message.from_user.id, "Кого удалим?", reply_markup=delete_keyboard())
+        bot.send_message(message.from_user.id, "/cleaning - удалить всех игроков\n\n/turtle - список не закончивших\n\n/mistake - разрешить инвестиции")
     elif message.text == "/cleaning":
         players = {}
         bot.send_message(325051402, "Все чисто")
@@ -470,7 +480,7 @@ def command_hadler(message):
         bot.send_message(325051402, "Можно инвестировать.")
 
 
-@bot.callback_query_handler(func=lambda message: True)
+@bot.callback_query_handler(func=lambda message: True)                    # реакция на нажатия спец кнопок
 def answer(message):
     global players
     global stop_game_flag
@@ -486,10 +496,16 @@ def answer(message):
             else:
                 if money_result(player) == 0:
                     bot.send_message(player, lose_money(player))
-                bot.send_message(player, f"Результаты {players[player]['round_number']} раунда:\n{round_table_str}")
+                    bot.send_message(player, f"Список лидеров:\n{round_table_str}")
+                else:
+                    bot.send_message(player, f"Ваш личный результат {players[player]['round_number']} раунда:\nКапитал: {money_result(player)} {dollar_word(money_result(player))}, долг: {players[player]['debt']} {dollar_word(players[player]['debt'])}")
+                    bot.send_message(player, f"Список лидеров:\n{round_table_str}")
         bot.send_message(325051402, f"{round_table_str[0] if players[player]['round_number'] == 7 else round_table_str}")
         if players[player]['round_number'] < 7:
             bot.send_message(325051402, f"Гавр, начнем следующий раунд?", reply_markup=keyboard_begin_round())
+        else:
+            excel_saving()
+            excel_sending()
         saving()
     elif message.data == 'begin':
         stop_game_flag = 0
@@ -500,36 +516,17 @@ def answer(message):
             else:
                 players[player]["money"] = money_result(player)
             players[player]["round_number"] += 1
-            bot.send_message(player, f"{beautiful(player)}\nВ какую компанию вы хотите инвестировать?", reply_markup=keyboard(round_list, player))
+            bot.send_message(player, f"{beautiful(player)}\nВ какую компанию вы хотите инвестировать?", reply_markup=keyboard(player))
         saving()
         bot.send_message(325051402, f"Гавр, запустим таймер?", reply_markup=keyboard_time_go())
         bot.send_message(325051402, f"Гавр, остановим инвестиции?", reply_markup=keyboard_stop_game())
-    elif message.data.isdigit() == True:
-        if int(message.data) in [player for player in players]:
-            leaver = int(message.data)
-            bot.send_message(325051402, f"{players[leaver]['name']} удален из игры")
-            players.pop(leaver)
-            saving()
-        else:
-            bot.send_message(325051402, "Этот игрок уже был удален ранее")
-    elif message.data == "sure":
-        if message.from_user.id in [player for player in players]:
-            bot.send_message(message.from_user.id,"Жаль, что вы остановились, не дойдя до цели. Так миллиард не заработать.")
-            bot.send_message(325051402, f"{players[message.from_user.id]['name']} вышел из игры")
-            players.pop(message.from_user.id)
-            saving()
-        else:
-            bot.send_message(message.from_user.id, "Выйти из игры чтобы, надобно войти в нее прежде!")
-    elif message.data == "notsure":
-        bot.send_message(message.from_user.id, "Чтобы преуспеть на фондовом рынке, нужно быть более решительным")
     elif message.data == "start_game":
         for player in players:
-            bot.send_message(player, f"{beautiful(player)}\nВ какую компанию вы хотите инвестировать?", reply_markup=keyboard(round_list, player))
+            bot.send_message(player, f"{beautiful(player)}\nВ какую компанию вы хотите инвестировать?", reply_markup=keyboard(player))
         bot.send_message(325051402, f"Гавр, запустим таймер?", reply_markup=keyboard_time_go())
         bot.send_message(325051402, f"Гавр, остановим инвестиции?", reply_markup=keyboard_stop_game())
     elif message.data == "stop_game":
         stop_game_flag = 1
-        bot.send_message(325051402, investment_table())
         bot.send_message(325051402, f"Гавр, разреши посмотреть результаты", reply_markup=keyboard_result())
         for i in players:
             players[i]["debt"] *= 2
@@ -539,16 +536,17 @@ def answer(message):
     else:
         if stop_game_flag == 0:
             if message.data in round_list(message.from_user.id):
-                bot.send_message(message.from_user.id, f"Сколько вы хотите инвестировать в {message.data}?\nСвободные средства — {players[message.from_user.id]['money']-sum([i for i in players[message.from_user.id]['companies'][players[message.from_user.id]['round_number']].values()])} {dollar_word(players[message.from_user.id]['money']-sum([i for i in players[message.from_user.id]['companies'][players[message.from_user.id]['round_number']].values()]))}.")
+                left_money = free_money(message.from_user.id)
+                bot.send_message(message.from_user.id, f"Сколько вы хотите инвестировать в {message.data}?\nСвободные средства — {left_money} {dollar_word(left_money)}.")
                 players[message.from_user.id]["choose"] = message.data
                 saving()
             else:
                 bot.send_message(message.from_user.id, f'Компания "{message.data}" более не нуждается в инвестициях. Выберите компанию из нынешнего раунда.')
         else:
-            bot.send_message(message.from_user.id, "К сожалению, время на инвестирование в этом раунде вышло.")
+            bot.send_message(message.from_user.id, "К сожалению время на инвестирование в этом раунде вышло.")
 
 
-@bot.message_handler(content_types=["text"])
+@bot.message_handler(content_types=["text"])              # реакция на простые текстовые сообщения
 def sticker_hadler(message):
     global players
     if message.from_user.id in players:
@@ -558,12 +556,12 @@ def sticker_hadler(message):
             if stop_game_flag == 0:
                 if players[message.from_user.id]['choose'] in round_list(message.from_user.id):
                     investment = int(message.text)
-                    money = players[message.from_user.id]["money"]
-                    round_investment = sum([i for i in players[message.from_user.id]["companies"][players[message.from_user.id]["round_number"]].values()])
-                    if investment > money - round_investment:
-                        bot.send_message(message.from_user.id, f"К сожалению, у вас только {money - round_investment} {dollar_word(money - round_investment)}. Сколько вы хотите инвестировать в {players[message.from_user.id]['choose']}?")
+                    left_money = free_money(message.from_user.id)
+                    if investment > left_money:
+                        bot.send_message(message.from_user.id, f"К сожалению, у вас только {left_money} {dollar_word(left_money)}. Сколько вы хотите инвестировать в {players[message.from_user.id]['choose']}?")
                     else:
                         players[message.from_user.id]["companies"][players[message.from_user.id]["round_number"]][players[message.from_user.id]["choose"]] += investment
+                        money = players[message.from_user.id]["money"]
                         round_investment = sum([i for i in players[message.from_user.id]["companies"][players[message.from_user.id]["round_number"]].values()])
                         if money == round_investment:
                             players[message.from_user.id]["round_result"] = money_result(message.from_user.id)
@@ -571,14 +569,15 @@ def sticker_hadler(message):
                                 bot.send_photo(message.from_user.id, photo=putin)
                             bot.send_message(message.from_user.id, f"Свободные средства закончились. Ваши инвестиции:\n{already_invested(message.from_user.id)}.\n\nКраткая справка об этом периоде истории.\n\n{yesfraselist[players[message.from_user.id]['round_number'] - 1]}")
                             players[message.from_user.id]["finish"][players[message.from_user.id]["round_number"]] = 1
-                            bot.send_message(325051402,f'{players[message.from_user.id]["name"]} закончил {players[message.from_user.id]["round_number"]} раунд c {money_result(message.from_user.id)} $')
+                            if sum([players[i]["finish"][players[i]["round_number"]] for i in players]) % 3 == 0:
+                                bot.send_message(325051402, f'{sum([players[i]["finish"][players[i]["round_number"]] for i in players])} человек закончили')
                             if sum([players[i]["finish"][players[message.from_user.id]["round_number"]] for i in players]) == len(players):
                                 bot.send_message(325051402, 'Гавр, все закончили, разреши посмотреть результаты', reply_markup=keyboard_result())
                                 bot.send_message(325051402, investment_table())
                                 for i in players:
                                     players[i]["debt"] *= 2
                         else:
-                            bot.send_message(message.from_user.id, f"Не останавливайтесь, у вас еще {money - round_investment} {dollar_word(money - round_investment)}.\n\nВы уже проинвестировали:\n{already_invested(message.from_user.id)}.\n\nЧьи акции хотите купить?", reply_markup=keyboard(round_list, message.from_user.id))
+                            bot.send_message(message.from_user.id, f"Не останавливайтесь, у вас еще {money - round_investment} {dollar_word(money - round_investment)}.\n\nВы уже проинвестировали:\n{already_invested(message.from_user.id)}.\n\nЧьи акции хотите купить?", reply_markup=keyboard(message.from_user.id))
                     saving()
                 else:
                     bot.send_message(message.from_user.id, "Сначала выберите компанию из списка предложенного выше. Иначе мы раздадим ваши деньги стартаперам из Сколково.")
